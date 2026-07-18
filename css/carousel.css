@@ -66,7 +66,7 @@
 
 .wheel-card.active {
     opacity: 1;
-    transform: translateY(-22px) scale(2);   /* rise + ~200% — comes to the foreground (Joe) */
+    transform: translateY(-60px) scale(1.7);   /* Joe tuned: rise + 170% */
     z-index: 20;           /* sit above the neighbours it now overlaps */
 }
 
