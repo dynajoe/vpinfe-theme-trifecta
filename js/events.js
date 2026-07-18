@@ -15,6 +15,9 @@ async function receiveEvent(message) {
       break;
 
     case "TableLaunching":
+      if (typeof stopAutoAdvanceTimer === "function") {
+        stopAutoAdvanceTimer();
+      }
       fadeOut();
       if (windowName !== "table") {
         cleanupAllMedia();
@@ -22,6 +25,9 @@ async function receiveEvent(message) {
       break;
 
     case "TableLaunchComplete":
+      if (typeof startAutoAdvanceTimer === "function") {
+        startAutoAdvanceTimer();
+      }
       fadeIn();
       if (windowName !== "table") {
         updateScreen();

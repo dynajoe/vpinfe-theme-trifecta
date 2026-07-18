@@ -6,7 +6,7 @@
 .wheel-carousel {
     position: relative;
     height: 180px;
-    overflow: hidden;
+    overflow: visible;   /* active card pops UP over the playfield; band stays small */
     background: rgba(0, 0, 0, 0);
 }
 
@@ -66,7 +66,8 @@
 
 .wheel-card.active {
     opacity: 1;
-    transform: scale(1.2);
+    transform: translateY(-22px) scale(2);   /* rise + ~200% — comes to the foreground (Joe) */
+    z-index: 20;           /* sit above the neighbours it now overlaps */
 }
 
 .wheel-card.dim-near {
