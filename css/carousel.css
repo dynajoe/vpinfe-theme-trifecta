@@ -64,10 +64,15 @@
         opacity 380ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+@keyframes wheelActiveGrow {
+    from { transform: translateY(0) scale(1); }
+    to   { transform: translateY(-60px) scale(1.7); }
+}
 .wheel-card.active {
     opacity: 1;
     transform: translateY(-60px) scale(1.7);   /* Joe tuned: rise + 170% */
     z-index: 20;           /* sit above the neighbours it now overlaps */
+    animation: wheelActiveGrow 360ms cubic-bezier(0.34, 1.2, 0.64, 1) both;
 }
 
 .wheel-card.dim-near {
