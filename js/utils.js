@@ -36,7 +36,12 @@ function updateScreen() {
 
     heroUpdateDebounceTimer = setTimeout(() => {
       updateTableWindowHeroMedia();
-      vpin.playTableAudio(currentTableIndex);
+      // Trifecta-Cab: keep attract mode silent (cab fix, 2026-07-09)
+      if (isAutoAdvancing) {
+        vpin.stopTableAudio({ immediate: true });
+      } else {
+        vpin.playTableAudio(currentTableIndex);
+      }
       heroUpdateDebounceTimer = null;
     }, 200);
   } else if (windowName === "bg") {

@@ -30,7 +30,7 @@ let tableView = null;
 // Auto-advance timer
 let autoAdvanceTimer = null;
 let isAutoAdvancing = false;
-const AUTO_ADVANCE_INITIAL_DELAY = 30000; // 30 seconds
+const AUTO_ADVANCE_INITIAL_DELAY = 180000; // 3 min (was 30s — attract hijacked browsing)
 const AUTO_ADVANCE_INTERVAL = 10000; // 10 seconds
 
 // Game state
