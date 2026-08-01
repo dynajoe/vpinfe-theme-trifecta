@@ -9,11 +9,30 @@ function startAutoAdvanceTimer() {
   }
 
   isAutoAdvancing = false;
+  startIdleTimer();
 
   autoAdvanceTimer = setTimeout(() => {
     isAutoAdvancing = true;
     autoAdvance();
   }, AUTO_ADVANCE_INITIAL_DELAY);
+}
+
+// Idle timer. Restarted by the SAME call every real input already makes, so
+// there is no second signal to keep in sync — if a button reaches the wheel,
+// the cab is not idle.
+function startIdleTimer() {
+  if (idleTimer !== null) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    if (isGameRunning) return;          // a table is up; not idle
+    isIdle = true;
+    vpin.sendMessageToAllWindowsIncSelf({ type: "IdleSleep" });
+  }, IDLE_TIMEOUT);
+}
+
+function wakeFromIdle() {
+  if (!isIdle) return;
+  isIdle = false;
+  vpin.sendMessageToAllWindowsIncSelf({ type: "IdleWake" });
 }
 
 function autoAdvance() {
@@ -42,6 +61,14 @@ function stopAutoAdvanceTimer() {
 }
 
 async function handleInput(input) {
+  // Wake FIRST: the input that wakes the cab should not also move the wheel,
+  // so a blind press in a dark room lands you where you left off rather than
+  // one table over.
+  if (isIdle) {
+    wakeFromIdle();
+    startAutoAdvanceTimer();
+    return;
+  }
   startAutoAdvanceTimer();
 
   switch (input) {
