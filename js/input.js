@@ -21,6 +21,7 @@ function startAutoAdvanceTimer() {
 // there is no second signal to keep in sync — if a button reaches the wheel,
 // the cab is not idle.
 function startIdleTimer() {
+  if (!IDLE_TIMEOUT) return;          // 0 = feature off, honestly off
   if (idleTimer !== null) clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
     if (isGameRunning) return;          // a table is up; not idle
