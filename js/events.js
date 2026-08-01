@@ -9,12 +9,34 @@ async function receiveEvent(message) {
   await vpin.handleEvent(message);
 
   switch (message.type) {
+    // Idle: stop advancing, tear down every decoder, go to black. This is the
+    // same teardown a table launch already performs, so it is a well-travelled
+    // path rather than a new one.
+    case "IdleSleep":
+      isIdle = true;
+      if (typeof stopAutoAdvanceTimer === "function") {
+        stopAutoAdvanceTimer();
+      }
+      cleanupAllMedia();
+      idleBlackOn();
+      break;
+
+    case "IdleWake":
+      isIdle = false;
+      idleBlackOff();
+      updateScreen();               // re-attaches the media cleanupAllMedia cleared
+      if (typeof startAutoAdvanceTimer === "function") {
+        startAutoAdvanceTimer();
+      }
+      break;
+
     case "TableIndexUpdate":
       currentTableIndex = message.index;
       updateScreen();
       break;
 
     case "TableLaunching":
+      isIdle = false;
       if (typeof stopAutoAdvanceTimer === "function") {
         stopAutoAdvanceTimer();
       }

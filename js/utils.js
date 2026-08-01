@@ -26,6 +26,22 @@ function cleanupAllMedia() {
   });
 }
 
+// Idle black. Reuses #fadeOverlay for the blackout but NOT fadeOut(), which
+// also raises the "loading table" message — correct for a launch, wrong for an
+// idle screen that would then sit there claiming to be loading something.
+function idleBlackOn() {
+  const overlay = document.getElementById("fadeOverlay");
+  if (!overlay) return;
+  const loadingMsg = document.getElementById("loading-message");
+  if (loadingMsg) loadingMsg.style.display = "none";
+  overlay.classList.add("show");
+}
+
+function idleBlackOff() {
+  const overlay = document.getElementById("fadeOverlay");
+  if (overlay) overlay.classList.remove("show");
+}
+
 function updateScreen() {
   if (windowName === "table") {
     updateTableWindowCarousel();
