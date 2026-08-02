@@ -42,10 +42,6 @@
     will-change: transform;
 }
 
-.wheel-track-transition {
-    pointer-events: none;
-}
-
 .wheel-track.is-scrolling {
     transition: transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -80,12 +76,13 @@
     transform: scale(1);
 }
 
-/* The outgoing track's just-demoted active card while carousel.js shrinks it
-   back into the row (transform driven there via animate()). Keeps the z-index
-   it had as .active so it doesn't clip under its own track's neighbours
-   mid-shrink. */
+/* The just-demoted active card while carousel.js shrinks it back into the row
+   (transform driven there via animate()). Above the plain neighbours it still
+   overlaps mid-shrink, but BELOW the growing active card: at equal z-index
+   DOM order decides, and DOM order flips with move direction — left moves
+   drew the shrinking card over the growing one. */
 .wheel-card.demoted {
-    z-index: 20;
+    z-index: 19;
 }
 
 .wheel-card img,

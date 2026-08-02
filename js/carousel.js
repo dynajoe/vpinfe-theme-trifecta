@@ -87,113 +87,117 @@ function getWheelStep(track) {
   return second.offsetLeft - first.offsetLeft;
 }
 
+// ONE track, re-rendered in place, pre-offset one step and slid home. This
+// replaced a two-track crossfade (a full duplicate track built per move, old
+// track sliding out at opacity 1 -> 0). Harness measurement showed the two
+// tracks perfectly registered — every card the same table at the same pixel,
+// 0px delta — so the fade was cross-dissolving the wheel into a copy of
+// itself. Its only real work was masking the two copies of the active/demoted
+// tables mid-flight at different scales (the ghost class of bug), and it was
+// not free: two stacked 0.8-opacity copies of every card read as 0.96, a
+// visible density pulse at the start of every move. One track cannot show a
+// table twice, so the ghost is structurally impossible now, and the pulse is
+// gone with the second layer.
+//
+// The trade: the trailing-edge card vanishes at move start instead of fading
+// out. Its mirror — the leading-edge card popping IN at full opacity — was
+// present in the crossfade version all along (the incoming track never faded)
+// and nobody ever noticed it, four steps off-centre.
 function updateWheelCarousel(view) {
-  const carousel = view.wheelCarousel;
-  let track = view.wheelTrack;
-  if (view.wheelTrackResetTimer) {
-    clearTimeout(view.wheelTrackResetTimer);
-    view.wheelTrackResetTimer = null;
-  }
-
-  const existingTracks = Array.from(carousel.querySelectorAll(".wheel-track"));
-  existingTracks.forEach((existingTrack) => {
-    existingTrack.getAnimations().forEach((animation) => animation.cancel());
-    existingTrack.classList.remove("wheel-track-transition");
-    existingTrack.style.transform = "";
-    existingTrack.style.zIndex = "";
-    if (existingTrack !== track) {
-      existingTrack.remove();
-    }
-  });
+  const track = view.wheelTrack;
 
   const canAnimate =
     lastRenderedTableIndex !== -1 &&
     lastWheelMoveDirection !== 0 &&
     vpin.getTableCount() > 1;
 
-  if (!canAnimate) {
-    renderWheelCarousel(track, currentTableIndex);
-    return;
+  // Read the active card's transform BEFORE cancelling animations and
+  // re-rendering: during rapid flipper paging the grow is still mid-flight,
+  // and its animated value vanishes the moment the animation is cancelled.
+  // Same trap the 1.6.1 ghost fix was built around; the lesson survives the
+  // redesign.
+  let activeTransform = null;
+  if (canAnimate) {
+    const prevActive = track.querySelector(".wheel-card.active");
+    if (prevActive) {
+      activeTransform = getComputedStyle(prevActive).transform;
+    }
   }
 
-  renderWheelCarousel(track, lastRenderedTableIndex);
+  // Cancel leftovers from an interrupted move: they run with fill:"forwards"
+  // and would otherwise override class styles forever.
+  track
+    .getAnimations({ subtree: true })
+    .forEach((animation) => animation.cancel());
+  const prevDemoted = track.querySelector(".wheel-card.demoted");
+  if (prevDemoted) prevDemoted.classList.remove("demoted");
+
+  renderWheelCarousel(track, currentTableIndex);
+
+  if (!canAnimate) return;
   const step = getWheelStep(track);
-  if (!step) {
-    renderWheelCarousel(track, currentTableIndex);
-    return;
-  }
+  if (!step) return;
 
-  const incomingTrack = createWheelTrack();
-  renderWheelCarousel(incomingTrack, currentTableIndex);
-  incomingTrack.classList.add("wheel-track-transition");
-  incomingTrack.style.zIndex = "2";
-  track.classList.add("wheel-track-transition");
-  track.style.zIndex = "1";
-  carousel.appendChild(incomingTrack);
-
-  const outgoingDelta = lastWheelMoveDirection > 0 ? -step : step;
-  const incomingStart = -outgoingDelta;
-  const translateValue = (value) => `translateY(-50%) translateX(${value}px)`;
-
-  incomingTrack.style.transform = translateValue(incomingStart);
-  incomingTrack.offsetWidth;
-
-  const animationDuration = 520;
+  // Pre-offset against the move so at t=0 every element sits on the screen
+  // slot it occupied before the move, showing the table that slot was already
+  // showing — the re-render is invisible, and the only discontinuities are
+  // the two edge cards four steps out.
+  const startX = lastWheelMoveDirection > 0 ? step : -step;
   const animationOptions = {
-    duration: animationDuration,
+    duration: 520,
     easing: "cubic-bezier(0.22, 0.61, 0.36, 1)",
     fill: "forwards",
   };
 
-  // Demote the outgoing track's active card so it shrinks WHILE the track
-  // fades. It used to keep .active — and translateY(-60px) scale(1.7) — for
-  // the whole fade, leaving a large low-opacity ghost of the previous wheel
-  // hanging over the incoming track's full-opacity cards. Two traps here,
-  // both measured in headless Chromium:
-  //  - read the computed transform BEFORE dropping the class: during rapid
-  //    flipper paging wheelActiveGrow can still be mid-flight, and its
-  //    animated value vanishes with the class;
-  //  - drive the shrink with animate(), not the CSS transition: removing a
-  //    class that also removes a CSS animation SNAPS transform to the new
-  //    value — a transition never runs out of an animation-held value.
-  // Same duration/easing as the track fade, so shrink and fade end together.
-  const outgoingActive = track.querySelector(".wheel-card.active");
-  if (outgoingActive) {
-    const fromTransform = getComputedStyle(outgoingActive).transform;
-    outgoingActive.className = "wheel-card dim-near demoted";
-    outgoingActive.animate(
+  track.animate(
+    [
+      { transform: `translateY(-50%) translateX(${startX}px)` },
+      { transform: "translateY(-50%)" },
+    ],
+    animationOptions,
+  );
+
+  // Replay the pop on the newly active card with animate(): the offset-0
+  // element keeps the literal class string "wheel-card active" across
+  // re-renders, so the wheelActiveGrow CSS animation never re-fires on a
+  // move (it still plays on the first ever render, where the class IS new).
+  // Timing matches the CSS keyframes it replays.
+  const activeCard = track.querySelector(".wheel-card.active");
+  if (activeCard) {
+    activeCard.animate(
+      [
+        { transform: "translateY(0) scale(1)" },
+        { transform: "translateY(-60px) scale(1.7)" },
+      ],
+      {
+        duration: 360,
+        easing: "cubic-bezier(0.34, 1.2, 0.64, 1)",
+        fill: "forwards",
+      },
+    );
+  }
+
+  // The element one slot against the move direction now shows the table that
+  // was active a moment ago. Shrink it from wherever the active card
+  // visually was — mid-grow during fast paging, hence the captured
+  // transform — and with animate(), not the CSS transition: a transition
+  // never runs out of an animation-held value, it snaps (the 1.6.1 scar).
+  const demoted = track.querySelector(
+    `.wheel-card[data-offset="${-lastWheelMoveDirection}"]`,
+  );
+  if (demoted) {
+    demoted.classList.add("demoted");
+    demoted.animate(
       [
         {
           transform:
-            fromTransform === "none" ? "translateY(0) scale(1)" : fromTransform,
+            activeTransform && activeTransform !== "none"
+              ? activeTransform
+              : "translateY(-60px) scale(1.7)",
         },
         { transform: "translateY(0) scale(1)" },
       ],
       animationOptions,
     );
   }
-
-  track.style.opacity = "1";
-  incomingTrack.style.opacity = "1";
-
-  track.animate(
-    [
-      { transform: "translateY(-50%)", opacity: 1 },
-      { transform: translateValue(outgoingDelta), opacity: 0 },
-    ],
-    animationOptions,
-  );
-  incomingTrack.animate(
-    [
-      { transform: translateValue(incomingStart), opacity: 1 },
-      { transform: "translateY(-50%)", opacity: 1 },
-    ],
-    animationOptions,
-  );
-
-  view.wheelTrack = incomingTrack;
-  view.wheelTrackResetTimer = setTimeout(() => {
-    track.remove();
-    view.wheelTrackResetTimer = null;
-  }, animationDuration + 50);
 }
