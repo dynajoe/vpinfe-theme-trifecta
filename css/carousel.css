@@ -80,6 +80,14 @@
     transform: scale(1);
 }
 
+/* The outgoing track's just-demoted active card while carousel.js shrinks it
+   back into the row (transform driven there via animate()). Keeps the z-index
+   it had as .active so it doesn't clip under its own track's neighbours
+   mid-shrink. */
+.wheel-card.demoted {
+    z-index: 20;
+}
+
 .wheel-card img,
 .wheel-card .wheel-fallback {
     max-width: 100%;

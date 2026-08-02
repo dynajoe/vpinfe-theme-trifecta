@@ -145,6 +145,34 @@ function updateWheelCarousel(view) {
     fill: "forwards",
   };
 
+  // Demote the outgoing track's active card so it shrinks WHILE the track
+  // fades. It used to keep .active — and translateY(-60px) scale(1.7) — for
+  // the whole fade, leaving a large low-opacity ghost of the previous wheel
+  // hanging over the incoming track's full-opacity cards. Two traps here,
+  // both measured in headless Chromium:
+  //  - read the computed transform BEFORE dropping the class: during rapid
+  //    flipper paging wheelActiveGrow can still be mid-flight, and its
+  //    animated value vanishes with the class;
+  //  - drive the shrink with animate(), not the CSS transition: removing a
+  //    class that also removes a CSS animation SNAPS transform to the new
+  //    value — a transition never runs out of an animation-held value.
+  // Same duration/easing as the track fade, so shrink and fade end together.
+  const outgoingActive = track.querySelector(".wheel-card.active");
+  if (outgoingActive) {
+    const fromTransform = getComputedStyle(outgoingActive).transform;
+    outgoingActive.className = "wheel-card dim-near demoted";
+    outgoingActive.animate(
+      [
+        {
+          transform:
+            fromTransform === "none" ? "translateY(0) scale(1)" : fromTransform,
+        },
+        { transform: "translateY(0) scale(1)" },
+      ],
+      animationOptions,
+    );
+  }
+
   track.style.opacity = "1";
   incomingTrack.style.opacity = "1";
 
