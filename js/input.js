@@ -107,7 +107,11 @@ async function handleInput(input) {
         stopAutoAdvanceTimer();
       }
       vpin.sendMessageToAllWindowsIncSelf({ type: "TableLaunching" });
-      cleanupAllMedia();
+      // pause, NOT cleanupAllMedia: this window's hero is in full view until
+      // the 800ms fade completes, and clearing src degrades it in front of the
+      // viewer (see pauseAllMedia in utils.js for the full failure). The other
+      // windows still get cleanupAllMedia via their TableLaunching handler.
+      pauseAllMedia();
       fadeOut();
 
       await vpin.launchTable(currentTableIndex);

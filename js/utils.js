@@ -20,10 +20,33 @@ function hasUsableMedia(url) {
 
 function cleanupAllMedia() {
   document.querySelectorAll("video").forEach((v) => {
+    // Detach handlers FIRST: clearing src fires a synthetic `error` (spec
+    // behavior for an empty src), and the element's own onerror is a media-
+    // failure fallback that swaps in a still image. Letting it run during
+    // teardown left a "healthy"-looking img in the frame, which the reuse
+    // check in updateHeroMedia then kept on IdleWake — a static PNG where the
+    // video belonged (caught by the launch-flash harness, 2026-08-02).
+    v.onerror = null;
+    v.onloadeddata = null;
     v.pause();
     v.src = "";
     v.load();
   });
+}
+
+// Launch-time quiesce for the PLAYFIELD window. cleanupAllMedia() is the wrong
+// tool while the hero is still on screen: clearing src repaints the element to
+// its poster, and an empty src then fires a synthetic `error` event (that is
+// spec behavior, not a real media failure) — all at t=0 of #fadeOverlay's
+// 800ms transition, so the viewer watches the hero degrade through a still-
+// transparent overlay. On the cab that was the file_missing "no media found"
+// playfield flashing on video-only tables (The Matrix et al.) and a hard cut
+// from motion to the still PNG on tables that have one. Pausing stops the
+// decoder just as dead without touching what is painted: the frozen frame is
+// what the overlay fades over, and the same element resumes on return, so the
+// media never visibly re-initializes.
+function pauseAllMedia() {
+  document.querySelectorAll("video").forEach((v) => v.pause());
 }
 
 // Idle black. Reuses #fadeOverlay for the blackout but NOT fadeOut(), which

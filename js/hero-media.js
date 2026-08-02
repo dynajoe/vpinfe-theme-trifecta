@@ -44,9 +44,44 @@ function applyMediaRotation(element) {
   }
 }
 
+// True if the frame's media element still holds displayable content. After
+// IdleSleep's cleanupAllMedia the element survives with src cleared and a
+// synthetic error set, so dataset URLs alone are not proof of health.
+function heroFrameIsHealthy(frame) {
+  const video = frame.querySelector("video");
+  if (video) return !video.error && video.readyState >= 2; // HAVE_CURRENT_DATA
+  const img = frame.querySelector("img");
+  // buildHeroImage's onerror blanks src; a decoded img has naturalWidth > 0.
+  if (img) return Boolean(img.getAttribute("src")) && (!img.complete || img.naturalWidth > 0);
+  return false;
+}
+
 function updateHeroMedia(container, title) {
   const imageUrl = vpin.getImageURL(currentTableIndex, "table");
   const videoUrl = vpin.getVideoURL(currentTableIndex, "table");
+
+  // Reuse the live layer when nothing changed. Table launch pauses the hero
+  // video (pauseAllMedia) and the return path lands here via updateScreen —
+  // rebuilding would re-fetch the whole table video (113MB for The Matrix) and
+  // visibly restart it from 0:00, which is the "reinitializing the media"
+  // Joe saw on every return. Resuming the same element is seamless.
+  const activeFrame = container.querySelector(".hero-media-frame.is-active");
+  if (
+    activeFrame &&
+    activeFrame.dataset.imageUrl === imageUrl &&
+    activeFrame.dataset.videoUrl === videoUrl &&
+    heroFrameIsHealthy(activeFrame)
+  ) {
+    // Kill any still-loading layer for a table we have since left: its
+    // activateLayer would otherwise fire on loadeddata and evict the reused
+    // frame, leaving the WRONG table's hero up (rapid browse: rest on B just
+    // long enough to start its load, return to A before it finishes).
+    // Entering layers are opacity 0, so removing them is invisible.
+    container.querySelectorAll(".hero-media-frame.is-entering").forEach((l) => l.remove());
+    const video = activeFrame.querySelector("video");
+    if (video && video.paused) video.play().catch(() => {});
+    return;
+  }
 
   const newFrame = document.createElement("div");
   newFrame.className = "hero-media-frame hero-media-layer is-entering";
@@ -86,6 +121,12 @@ function updateHeroMedia(container, title) {
 
     video.onloadeddata = activateLayer;
     video.onerror = () => {
+      // Guard the fallback like bg-dmd-media.js does: when the table has no
+      // still image, imageUrl is vpinfe's file_missing placeholder, and
+      // painting it here put a full-screen "no media found" playfield on the
+      // cab whenever a video-only table's video errored. Better to keep
+      // whatever layer is already showing than to advertise the failure.
+      if (!hasUsableMedia(imageUrl)) return;
       const fallback = buildHeroImage(imageUrl, title);
       newFrame.replaceChildren(fallback);
       applyMediaRotation(fallback);

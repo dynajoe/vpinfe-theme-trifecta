@@ -9,9 +9,12 @@ async function receiveEvent(message) {
   await vpin.handleEvent(message);
 
   switch (message.type) {
-    // Idle: stop advancing, tear down every decoder, go to black. This is the
-    // same teardown a table launch already performs, so it is a well-travelled
-    // path rather than a new one.
+    // Idle: stop advancing, tear down every decoder, go to black. Full
+    // teardown is right HERE because nobody is watching an idle cab and the
+    // point is power; a table launch only PAUSES the playfield's video
+    // (input.js joyselect), because there the hero is in view while the
+    // overlay fades. IdleWake's updateScreen rebuilds what this cleared —
+    // heroFrameIsHealthy() sees the gutted element and does not skip it.
     case "IdleSleep":
       isIdle = true;
       if (typeof stopAutoAdvanceTimer === "function") {
