@@ -39,6 +39,25 @@ async function receiveEvent(message) {
       break;
 
     case "TableLaunching":
+      // A launch from OUTSIDE this window (voice control goes through the
+      // bridge's controller window) names its table; snap our index to it
+      // FIRST so the "loading" title, launch media and post-game position
+      // all tell the truth. A voice launch used to show "loading <whatever
+      // the wheel sat on>" (Joe's report). Wheel-originated launches carry
+      // no name and behave exactly as before.
+      if (message.table_dir && typeof vpin !== "undefined") {
+        const n = vpin.getTableCount ? vpin.getTableCount() : 0;
+        for (let i = 0; i < n; i++) {
+          const t = vpin.getTableMeta(i);
+          if (t && t.tableDirName === message.table_dir) {
+            if (i !== currentTableIndex) {
+              currentTableIndex = i;
+              updateScreen();
+            }
+            break;
+          }
+        }
+      }
       isIdle = false;
       if (typeof stopAutoAdvanceTimer === "function") {
         stopAutoAdvanceTimer();
